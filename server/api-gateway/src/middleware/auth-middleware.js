@@ -1,45 +1,49 @@
-const  {OAuth2Client} = require('google-auth-library');
+const { OAuth2Client } = require('google-auth-library');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-async function authMiddleware(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+const authenticateRequest = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
 
-    if(!token) {
-        return res.status(401).json({
-            error: 'Access denied token',
-        });
-    }
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                error: 'Access denied. No token provided.',
+            });
+        }
 
-    try{
+        const token = authHeader.split(' ')[1];
+
+        // Verify the Google OAuth token
         const ticket = await client.verifyIdToken({
             idToken: token,
             audience: process.env.GOOGLE_CLIENT_ID,
-        })
+        });
 
         const payload = ticket.getPayload();
 
-        //addUserInfo to req.user object
-
+        // Add user info to request
         req.user = {
-            userId : payload['sub'],
-            email: payload['email'],
-            name: payload['name'],
-        }
+            id: payload.sub,
+            email: payload.email,
+            name: payload.name
+        };
 
-        //add user Id to headers fo downstrem services
-        req.headers['x-user-id'] = payload['sub'];
+        // Add user info to headers for downstream services
+        // Encode values to ensure they are valid header content
+        req.headers['x-user-id'] = payload.sub;
+        req.headers['x-user-email'] = Buffer.from(payload.email || '').toString('base64');
+        req.headers['x-user-name'] = Buffer.from(payload.name || '').toString('base64');
 
-        //optional
-        req.headers['x-user-name'] = payload['name'];
-
-    }catch(err){
-        console.log('Token verification failed!' , err);
-        res.status(401).json({
+        next();
+    } catch (error) {
+        console.error('Auth Error:', error);
+        return res.status(401).json({
             error: 'Invalid token',
-        })
+            message: error.message
+        });
     }
-}
+};
 
-module.exports = authMiddleware;
+module.exports = authenticateRequest;
+
