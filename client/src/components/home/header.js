@@ -1,11 +1,11 @@
 'use client'
 
-import {useSession} from "next-auth/react"
 import {Input } from "@/components/ui/input";
 import {Search ,LogOut} from "lucide-react"
 import {DropdownMenu, DropdownMenuContent, DropdownMenuTrigger ,DropdownMenuItem} from "@/components/ui/dropdown-menu";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
-import {signOut} from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+
 
 function Header(){
     const {data: session} = useSession();
